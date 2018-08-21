@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP10" creationDateTime="2018-08-21T13:43:01.8092514" />
-  <contentHeader name="Untitled1.project" modificationDateTime="2018-08-21T13:41:54.3207692">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP10" creationDateTime="2018-08-21T15:11:14.7188282" />
+  <contentHeader name="AgribotV4.project" modificationDateTime="2018-08-21T14:53:58.117174">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />
@@ -16,7 +16,7 @@
     <addData>
       <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
         <ProjectInformation>
-          <property name="Project" type="string">Untitled1</property>
+          <property name="Project" type="string">AgribotV4</property>
         </ProjectInformation>
       </data>
     </addData>
@@ -129,28 +129,13 @@
                 <xhtml xmlns="http://www.w3.org/1999/xhtml">receive FIFO buffer updated in communication task</xhtml>
               </documentation>
             </variable>
-            <variable name="ManualControlState">
+            <variable name="manualControl">
               <type>
-                <USINT />
+                <derived name="manualSteering" />
               </type>
               <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> 0 - manual inactive, no demand</xhtml>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">This variable is used for manual steering control routines:</xhtml>
               </documentation>
-            </variable>
-            <variable name="ManualControlDemand">
-              <type>
-                <BOOL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> 1 - manual inactive, there is a demand for manual control, getting ready for manual control
- 2 - manual inactive, ready for manual control, waiting for masters confirmation
- 3 - manual control active, reading move orders</xhtml>
-              </documentation>
-            </variable>
-            <variable name="Manual_IS_BUSY">
-              <type>
-                <BOOL />
-              </type>
             </variable>
             <variable name="DeviceConnected">
               <type>
@@ -177,9 +162,9 @@
                 <BOOL />
               </type>
             </variable>
-            <variable name="RPMUserRequest">
+            <variable name="TargetReached">
               <type>
-                <USINT />
+                <BOOL />
               </type>
             </variable>
             <variable name="DestAdress">
@@ -189,148 +174,6 @@
               <initialValue>
                 <simpleValue value="128" />
               </initialValue>
-            </variable>
-            <variable name="Manual_Carts_Aligned">
-              <type>
-                <BOOL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">Manual control states</xhtml>
-              </documentation>
-            </variable>
-            <variable name="ManualStartEngineRequest">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ManualStopEngineRequest">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="Manual_Align_Command">
-              <type>
-                <BOOL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">Manual commands states</xhtml>
-              </documentation>
-            </variable>
-            <variable name="Manual_Set_Front_Command">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="Manual_Set_Back_Command">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ComCartsStraight">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ComCartFrontStraight">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ComCartBackStraight">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ComCart1Rot">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ComCart2Rot">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="Manual_Set_Angle_Front_SetPoint">
-              <type>
-                <REAL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">Manual commands values/arguments
-setpoints for carts angles</xhtml>
-              </documentation>
-            </variable>
-            <variable name="Manual_Set_Angle_Back_SetPoint">
-              <type>
-                <REAL />
-              </type>
-            </variable>
-            <variable name="Manual_Straight_Speed">
-              <type>
-                <SINT />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">data for manual moving straight</xhtml>
-              </documentation>
-            </variable>
-            <variable name="Manual_Cart1_Rotate">
-              <type>
-                <SINT />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">data for manual rotation</xhtml>
-              </documentation>
-            </variable>
-            <variable name="Manual_Cart2_Rotate">
-              <type>
-                <SINT />
-              </type>
-            </variable>
-            <variable name="Manual_Arc_Radius">
-              <type>
-                <USINT />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">at the same time this is an indicator of moving along the arc command</xhtml>
-              </documentation>
-            </variable>
-            <variable name="Manual_Arc_Dir">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="Manual_Arc_Fr">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="Manual_Arc_Continue">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="Manual_Follow_Route">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ComCartsStraightDir">
-              <type>
-                <BOOL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">straight commands direction</xhtml>
-              </documentation>
-            </variable>
-            <variable name="ComCart1RotDir">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="ComCart2RotDir">
-              <type>
-                <BOOL />
-              </type>
             </variable>
             <variable name="SwitchState">
               <type>
@@ -725,11 +568,6 @@ GPS_Last_Positions: ARRAY[0..10] OF GPSCoord;</xhtml>
                 <USINT />
               </type>
             </variable>
-            <variable name="TargetReached">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
             <variable name="TargetLatitude">
               <type>
                 <REAL />
@@ -849,7 +687,6 @@ GPS_Last_Positions: ARRAY[0..10] OF GPSCoord;</xhtml>
                       <value name="CAN_ID_CommandSetRPM" value="61" />
                       <value name="CAN_ID_CommandSetGPSTarget" value="66" />
                       <value name="CAN_ID_STOP" value="255" />
-                      <value name="CAN_ID_DataRequest" value="100" />
                       <value name="CAN_ID_AgribotStatus1" value="100" />
                       <value name="CAN_ID_AgribotStatus2" value="101" />
                       <value name="CAN_ID_AgribotStatus3" value="105" />
@@ -950,12 +787,6 @@ GPS_Last_Positions: ARRAY[0..10] OF GPSCoord;</xhtml>
                         </Documentation>
                       </EnumValue>
                       <EnumValue>
-                        <Name>CAN_ID_DataRequest</Name>
-                        <Documentation>
-                          <xhtml xmlns="http://www.w3.org/1999/xhtml">device request for data</xhtml>
-                        </Documentation>
-                      </EnumValue>
-                      <EnumValue>
                         <Name>CAN_ID_AgribotStatus1</Name>
                         <Documentation>
                           <xhtml xmlns="http://www.w3.org/1999/xhtml">Status Data 1</xhtml>
@@ -1029,6 +860,57 @@ GPS_Last_Positions: ARRAY[0..10] OF GPSCoord;</xhtml>
                 </addData>
               </dataType>
             </data>
+            <data name="http://www.3s-software.com/plcopenxml/datatype" handleUnknown="implementation">
+              <dataType name="en_manualModeState">
+                <baseType>
+                  <enum>
+                    <values>
+                      <value name="NO_DEMAND" value="0" />
+                      <value name="MANUAL_DEMANDED" value="1" />
+                      <value name="WAITING_CONFIRMATION" value="2" />
+                      <value name="ACTIVE" value="3" />
+                    </values>
+                    <baseType>
+                      <USINT />
+                    </baseType>
+                  </enum>
+                </baseType>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/enumvaluedocumentation" handleUnknown="implementation">
+                    <EnumValueDocumentation>
+                      <EnumValue>
+                        <Name>MANUAL_DEMANDED</Name>
+                        <Documentation>
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml"> 0 - manual inactive, no demand</xhtml>
+                        </Documentation>
+                      </EnumValue>
+                      <EnumValue>
+                        <Name>WAITING_CONFIRMATION</Name>
+                        <Documentation>
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml"> 1 - manual inactive, there is a demand for manual control, getting ready for manual control</xhtml>
+                        </Documentation>
+                      </EnumValue>
+                      <EnumValue>
+                        <Name>ACTIVE</Name>
+                        <Documentation>
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml"> 2 - manual inactive, ready for manual control, waiting for masters confirmation
+ 3 - manual control active, reading move orders</xhtml>
+                        </Documentation>
+                      </EnumValue>
+                    </EnumValueDocumentation>
+                  </data>
+                  <data name="http://www.3s-software.com/plcopenxml/attributes" handleUnknown="implementation">
+                    <Attributes>
+                      <Attribute Name="qualified_only" Value="" />
+                      <Attribute Name="strict" Value="" />
+                    </Attributes>
+                  </data>
+                  <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+                    <ObjectId>a842ba19-153c-4d67-94d3-2756921e06ff</ObjectId>
+                  </data>
+                </addData>
+              </dataType>
+            </data>
             <data name="http://www.3s-software.com/plcopenxml/pou" handleUnknown="implementation">
               <pou name="Application_PRG" pouType="program">
                 <interface>
@@ -1056,6 +938,9 @@ GPS_Last_Positions: ARRAY[0..10] OF GPSCoord;</xhtml>
                       <initialValue>
                         <simpleValue value="en_commStatus.INIT" />
                       </initialValue>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml">Connection staus:</xhtml>
+                      </documentation>
                     </variable>
                     <variable name="BT_CAN_ID_FORMAT">
                       <type>
@@ -1158,7 +1043,9 @@ IF status = en_commStatus.INIT THEN
 	
 	GVL.DeviceConnected:=FALSE; //no device is connected
 	
-	GVL.ManualControlState:=0; //no manual control
+	//If for some reasons, we are still in manual mode, exit:  
+	GVL.manualControl.setManualModeInactive(); //GVL.ManualControlState:=0;
+	
 	GVL.ManualControlDemand:=FALSE; 
 	GVL.ComCart1Rot:=FALSE;
 	GVL.ComCart2Rot:=FALSE;
@@ -1205,7 +1092,8 @@ IF status = en_commStatus.INIT THEN
 //***********STATUS WAITING FOR HAND SHAKE*************//
 //*****************************************************//
 ELSIF status = en_commStatus.WAITING_FOR_HS THEN
-	GVL.ManualControlState:=0;
+	//If there was connection loss, then exit manual mode:
+	GVL.manualControl.setManualModeInactive();			//GVL.ManualControlState :=0;
 	//read fifo till the end
 	WHILE GVL.BT_RXCanFramesFIFO.uiAvailableFrames&lt;&gt;0 DO
 		RX_Frame:=GVL.BT_RXCanFramesFIFO.getFirstFrame();
@@ -1263,7 +1151,10 @@ ELSIF status=en_commStatus.RUNNING OR status=en_commStatus.MANUAL THEN
 			IF RXHeartbeatTimer.Q THEN //if heartbeat was absent for 200ms, then disconnect
 				status := en_commStatus.WAITING_FOR_HS;//back to waiting state
 				GVL.DeviceConnected:=FALSE; //no connection flag
-				GVL.ManualControlState:=0; //no manual control flag
+				
+				//If heartbeat was lost, exit manual mode:  
+				GVL.manualControl.setManualModeInactive(); //GVL.ManualControlState:=0;
+				
 				//turn off the manual commands
 				GVL.ComCart1Rot:=FALSE;
 				GVL.ComCart2Rot:=FALSE;
@@ -1812,17 +1703,6 @@ CAN bus recover
                       </initialValue>
                       <documentation>
                         <xhtml xmlns="http://www.w3.org/1999/xhtml">stop the current actions</xhtml>
-                      </documentation>
-                    </variable>
-                    <variable name="CAN_ID_DataRequest">
-                      <type>
-                        <USINT />
-                      </type>
-                      <initialValue>
-                        <simpleValue value="100" />
-                      </initialValue>
-                      <documentation>
-                        <xhtml xmlns="http://www.w3.org/1999/xhtml">device request for data</xhtml>
                       </documentation>
                     </variable>
                     <variable name="CAN_ID_AgribotStatus1">
@@ -2868,7 +2748,7 @@ END_IF
 				END_IF
 		//=======================================================================================================
 		//if received data request, send data
-			ELSIF  CANwirelessRXblock.udiID=CAN_ID_DataRequest THEN
+			ELSIF  CANwirelessRXblock.udiID = en_canFrameID.CAN_ID_AgribotStatus1 THEN //instead of data_request ID, also == 100
 					IF CANwirelessTXblock.xError=FALSE THEN //i wszystko ok z TX
 						//engine data 1
 						tempdata:=REAL_TO_UINT(Engine_Speed);
@@ -4152,13 +4032,192 @@ END_IF
             </data>
             <data name="http://www.3s-software.com/plcopenxml/pou" handleUnknown="implementation">
               <pou name="manualSteering" pouType="functionBlock">
-                <interface />
+                <interface>
+                  <localVars>
+                    <variable name="ManualControlState">
+                      <type>
+                        <USINT />
+                      </type>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml"> 0 - manual inactive, no demand
+ 1 - manual inactive, there is a demand for manual control, getting ready for manual control
+ 2 - manual inactive, ready for manual control, waiting for masters confirmation
+ 3 - manual control active, reading move orders</xhtml>
+                      </documentation>
+                    </variable>
+                    <variable name="Manual_IS_BUSY">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ManualControlDemand">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ComCart1Rot">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ComCart2Rot">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ComCartsStraightDir">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ComCart1RotDir">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ComCart2RotDir">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ComCartsStraight">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="RPMUserRequest">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="ComCartFrontStraight">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ComCartBackStraight">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Carts_Aligned">
+                      <type>
+                        <BOOL />
+                      </type>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml">Manual control states</xhtml>
+                      </documentation>
+                    </variable>
+                    <variable name="ManualStartEngineRequest">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="ManualStopEngineRequest">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Align_Command">
+                      <type>
+                        <BOOL />
+                      </type>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml">Manual commands states</xhtml>
+                      </documentation>
+                    </variable>
+                    <variable name="Manual_Set_Front_Command">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Set_Back_Command">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Set_Angle_Front_SetPoint">
+                      <type>
+                        <REAL />
+                      </type>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml">Manual commands values/arguments
+setpoints for carts angles</xhtml>
+                      </documentation>
+                    </variable>
+                    <variable name="Manual_Set_Angle_Back_SetPoint">
+                      <type>
+                        <REAL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Straight_Speed">
+                      <type>
+                        <SINT />
+                      </type>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml">data for manual moving straight</xhtml>
+                      </documentation>
+                    </variable>
+                    <variable name="Manual_Cart1_Rotate">
+                      <type>
+                        <SINT />
+                      </type>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml">data for manual rotation</xhtml>
+                      </documentation>
+                    </variable>
+                    <variable name="Manual_Cart2_Rotate">
+                      <type>
+                        <SINT />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Arc_Radius">
+                      <type>
+                        <USINT />
+                      </type>
+                      <documentation>
+                        <xhtml xmlns="http://www.w3.org/1999/xhtml">at the same time this is an indicator of moving along the arc command</xhtml>
+                      </documentation>
+                    </variable>
+                    <variable name="Manual_Arc_Dir">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Arc_Fr">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Arc_Continue">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Manual_Follow_Route">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                  </localVars>
+                </interface>
                 <body>
                   <ST>
                     <xhtml xmlns="http://www.w3.org/1999/xhtml" />
                   </ST>
                 </body>
                 <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+                    <Method name="setManualModeInactive" ObjectId="1fe42464-aeba-440a-bf56-4ea551dc0db6">
+                      <interface />
+                      <body>
+                        <ST>
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml">ManualControlState := en_manualModeState.NO_DEMAND;</xhtml>
+                        </ST>
+                      </body>
+                      <addData />
+                    </Method>
+                  </data>
                   <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
                     <ObjectId>beb9497c-a90d-4efd-a9b5-aa241c8ef363</ObjectId>
                   </data>
@@ -8926,7 +8985,10 @@ END_IF
             <Object Name="en_commStatus" ObjectId="9f2299e7-c3fd-447b-8e96-4b6d0b12f50a" />
             <Object Name="en_canFrameID" ObjectId="84b7d177-6fd7-462a-b570-158f1404969d" />
             <Folder Name="MANUAL_STEERING">
-              <Object Name="manualSteering" ObjectId="beb9497c-a90d-4efd-a9b5-aa241c8ef363" />
+              <Object Name="manualSteering" ObjectId="beb9497c-a90d-4efd-a9b5-aa241c8ef363">
+                <Object Name="setManualModeInactive" ObjectId="1fe42464-aeba-440a-bf56-4ea551dc0db6" />
+              </Object>
+              <Object Name="en_manualModeState" ObjectId="a842ba19-153c-4d67-94d3-2756921e06ff" />
             </Folder>
           </Object>
         </Object>
