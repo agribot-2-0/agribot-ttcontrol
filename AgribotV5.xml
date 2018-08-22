@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP10" creationDateTime="2018-08-21T16:23:21.5294536" />
-  <contentHeader name="AgribotV4.project" modificationDateTime="2018-08-21T16:01:32.5415488">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP10" creationDateTime="2018-08-22T14:16:48.6644112" />
+  <contentHeader name="AgribotV4.project" modificationDateTime="2018-08-22T14:14:46.7360104">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />
@@ -31,6 +31,11 @@
         <resource name="Application">
           <task name="Main_Task" interval="PT0.1S" priority="2">
             <pouInstance name="Application_PRG" typeName="">
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml" />
+              </documentation>
+            </pouInstance>
+            <pouInstance name="Logic_PRG" typeName="">
               <documentation>
                 <xhtml xmlns="http://www.w3.org/1999/xhtml" />
               </documentation>
@@ -867,8 +872,10 @@ GPS_Last_Positions: ARRAY[0..10] OF GPSCoord;</xhtml>
                     <values>
                       <value name="NO_DEMAND" value="0" />
                       <value name="MANUAL_DEMANDED" value="1" />
-                      <value name="WAITING_CONFIRMATION" value="2" />
-                      <value name="ACTIVE" value="3" />
+                      <value name="AGRIBOT_READY" value="2" />
+                      <value name="AGRIBOT_BUSY" value="3" />
+                      <value name="WAIT_CONFIRMATION" value="4" />
+                      <value name="ACTIVE" value="5" />
                     </values>
                     <baseType>
                       <USINT />
@@ -876,29 +883,6 @@ GPS_Last_Positions: ARRAY[0..10] OF GPSCoord;</xhtml>
                   </enum>
                 </baseType>
                 <addData>
-                  <data name="http://www.3s-software.com/plcopenxml/enumvaluedocumentation" handleUnknown="implementation">
-                    <EnumValueDocumentation>
-                      <EnumValue>
-                        <Name>MANUAL_DEMANDED</Name>
-                        <Documentation>
-                          <xhtml xmlns="http://www.w3.org/1999/xhtml"> 0 - manual inactive, no demand</xhtml>
-                        </Documentation>
-                      </EnumValue>
-                      <EnumValue>
-                        <Name>WAITING_CONFIRMATION</Name>
-                        <Documentation>
-                          <xhtml xmlns="http://www.w3.org/1999/xhtml"> 1 - manual inactive, there is a demand for manual control, getting ready for manual control</xhtml>
-                        </Documentation>
-                      </EnumValue>
-                      <EnumValue>
-                        <Name>ACTIVE</Name>
-                        <Documentation>
-                          <xhtml xmlns="http://www.w3.org/1999/xhtml"> 2 - manual inactive, ready for manual control, waiting for masters confirmation
- 3 - manual control active, reading move orders</xhtml>
-                        </Documentation>
-                      </EnumValue>
-                    </EnumValueDocumentation>
-                  </data>
                   <data name="http://www.3s-software.com/plcopenxml/attributes" handleUnknown="implementation">
                     <Attributes>
                       <Attribute Name="qualified_only" Value="" />
@@ -1045,24 +1029,9 @@ IF status = en_commStatus.INIT THEN
 	
 	//If for some reasons, we are still in manual mode, exit:  
 	GVL.manualControl.setManualModeInactive(); //GVL.ManualControlState:=0;
-	
 	GVL.manualControl.stopAllStartedActions();
-	//GVL.ManualControlDemand:=FALSE; 
-	//GVL.ComCart1Rot:=FALSE;
-	//GVL.ComCart2Rot:=FALSE;
-	//GVL.ComCart1RotDir:=FALSE;
-	//GVL.ComCart2RotDir:=FALSE;
-	//GVL.ComCartsStraight:=FALSE;
-	//GVL.RPMUserRequest:=255; //engine is free
-	//GVL.ManualStartEngineRequest:=FALSE;
-	//GVL.Manual_Arc_Continue:=FALSE;
-	//GVL.Manual_Arc_Radius:=0;			
-	//GVL.ComCartFrontStraight:=FALSE;
-	//GVL.ComCartBackStraight:=FALSE;
-				
-	
 
-// Initialization part
+	// Initialization part
 	IF can_inited = FALSE THEN   			
 		//init a can channel
 		io_error := lib500.IO_CAN_Init(GVL.CAN_BT_CHANNEL,
@@ -1160,22 +1129,10 @@ ELSIF status=en_commStatus.RUNNING OR status=en_commStatus.MANUAL THEN
 				
 				//If heartbeat was lost, exit manual mode:  
 				GVL.manualControl.setManualModeInactive(); //GVL.ManualControlState:=0;
-				
 				//turn off the manual commands
 				GVL.manualControl.stopAllStartedActions();
-				
-				//GVL.ComCart1Rot:=FALSE;
-				//GVL.ComCart2Rot:=FALSE;
-				//GVL.ComCartsStraight:=FALSE;
-				//GVL.ComCartFrontStraight:=FALSE;
-				//GVL.ComCartBackStraight:=FALSE;
-				//GVL.Manual_Arc_Continue:=FALSE;
-				//GVL.Manual_Arc_Radius:=0;
-				//GVL.ManualStartEngineRequest:=FALSE;
-				//GVL.RPMUserRequest:=255; //engine is free
-				
+		
 				GVL.TargetReached:=TRUE;
-				
 				//turn off switches
 				Switch_iterator:=1;
 				WHILE Switch_iterator&lt;=12 DO
@@ -1184,7 +1141,6 @@ ELSIF status=en_commStatus.RUNNING OR status=en_commStatus.MANUAL THEN
 					Switch_iterator:=Switch_iterator+1;
 				END_WHILE
 				//send error message, connection lost, reason: lack of heartbeat, connection is unstable 
-				
 				//construct the error frame to send
 				TX_Frame.id := en_canFrameID.CAN_ID_TXError;
 				TX_Frame.id_format:=BT_CAN_ID_FORMAT;
@@ -1210,12 +1166,6 @@ ELSIF status=en_commStatus.RUNNING OR status=en_commStatus.MANUAL THEN
 		IF status=en_commStatus.MANUAL THEN
 			IF RXManualControlTimer.Q THEN
 				GVL.manualControl.stopAllStartedActions();
-				//GVL.ComCart1Rot:=FALSE;
-				//GVL.ComCart2Rot:=FALSE;
-				//GVL.ComCartsStraight:=FALSE;
-				//GVL.ComCartFrontStraight:=FALSE;
-				//GVL.ComCartBackStraight:=FALSE;
-				//GVL.Manual_Arc_Radius:=0;
 			ELSE
 				RXManualControlTimer(IN:=TRUE, PT:=RXManualControlTimerPeriod);
 			END_IF
@@ -1224,10 +1174,62 @@ ELSIF status=en_commStatus.RUNNING OR status=en_commStatus.MANUAL THEN
 				 RXStopTimer(IN:=TRUE, PT:=T#1000MS);
 			END_IF		
 		END_IF
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//search the buffer for recognizable CAN ID's
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 		
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		// [MANUAL MODE CONNECTION STATE MACHINE 2] If main logic decides that Agribot finished all 
+		// the jobs then we send confirmation to app	
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		IF GVL.manualControl.getManualState() = en_manualModeState.AGRIBOT_READY THEN
+			
+			TX_Frame.id:=en_canFrameID.CAN_ID_ManualOK;
+			TX_Frame.id_format:=BT_CAN_ID_FORMAT;
+			TX_Frame.length:=1;
+			TX_Frame.data[0]:=16#FF;  		//latest hearbeat
+			lib500.IO_CAN_WriteMsg(hWriteMsg,
+								ADR(TX_Frame)); 
+								
+			TXTimeoutTimer(IN:=TRUE, PT:=TXTimeout);
+			WHILE (lib500.IO_CAN_MsgStatus(hWriteMsg) &lt;&gt; lib500_types.IO_ERRORTYPE.IO_E_OK) DO
+				IF TXTimeoutTimer.Q=TRUE THEN
+					EXIT;
+				END_IF
+			END_WHILE
+			//reset transmit timeout timer		
+			TXTimeoutTimer.IN:=FALSE;	
+			
+			//If message is sendeded successfully change state ManualMode state machine to WAIT_CONFIRMATION from app
+			GVL.manualControl.setManualStatus(en_manualModeState.WAIT_CONFIRMATION);
+		END_IF
+		
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		// [MANUAL MODE CONNECTION STATE MACHINE 2] Send error that agribot isnt ready
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		IF GVL.manualControl.getManualState() = en_manualModeState.AGRIBOT_BUSY THEN			
+			TX_Frame.id:=en_canFrameID.CAN_ID_TXError;
+			TX_Frame.id_format:=BT_CAN_ID_FORMAT;
+			TX_Frame.length:=2;
+			TX_Frame.data[0]:=16#00; //Agribot is busy
+			TX_Frame.data[0]:=16#01;
+			
+			lib500.IO_CAN_WriteMsg(hWriteMsg,
+								ADR(TX_Frame)); 
+								
+			TXTimeoutTimer(IN:=TRUE, PT:=TXTimeout);
+			WHILE (lib500.IO_CAN_MsgStatus(hWriteMsg) &lt;&gt; lib500_types.IO_ERRORTYPE.IO_E_OK) DO
+				IF TXTimeoutTimer.Q=TRUE THEN
+					EXIT;
+				END_IF
+			END_WHILE
+			//reset transmit timeout timer		
+			TXTimeoutTimer.IN:=FALSE;
+			
+			//If message is sendeded successfully change state ManualMode state machine to WAIT_CONFIRMATION
+			GVL.manualControl.setManualStatus(en_manualModeState.MANUAL_DEMANDED);
+		END_IF
+		
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		//search the buffer for recognizable CAN ID's
+		//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 		WHILE GVL.BT_RXCanFramesFIFO.uiAvailableFrames &lt;&gt; 0 DO //if there is something in the buffer, check what, till the end
 		//=======================================================================================================
 		//get the next frame from FIFO
@@ -1306,6 +1308,41 @@ ELSIF status=en_commStatus.RUNNING OR status=en_commStatus.MANUAL THEN
 					END_IF
 				END_IF
 			END_IF
+			
+			// [MANUAL MODE CONNECTION STATE MACHINE 0 ] Here we receive frame which is sended by user when 
+			// requesting Manual Control Mode
+			IF RX_Frame.udiCanID = en_canFrameID.CAN_ID_ManualControlInit THEN
+				
+				//Send confirmation that you received manual request:
+				TX_Frame.id:=en_canFrameID.CAN_ID_ManualControlInit;
+				TX_Frame.id_format:=BT_CAN_ID_FORMAT;
+				TX_Frame.length:=1;
+				TX_Frame.data[0]:=16#FF;
+				lib500.IO_CAN_WriteMsg(hWriteMsg,
+									ADR(TX_Frame)); 
+				TXTimeoutTimer(IN:=TRUE, PT:=TXTimeout);
+				WHILE (lib500.IO_CAN_MsgStatus(hWriteMsg) &lt;&gt; lib500_types.IO_ERRORTYPE.IO_E_OK) DO
+					IF TXTimeoutTimer.Q=TRUE THEN
+						EXIT;
+					END_IF
+				END_WHILE
+				//reset timeout timer		
+				TXTimeoutTimer.IN:=FALSE;	
+				
+				//MANUAL_DEMAND which is later received by main logic. Main logic takes lead of state machine
+				GVL.manualControl.setManualStatus(en_manualModeState.MANUAL_DEMANDED); 	
+				
+			END_IF
+			
+			// [MANUAL MODE CONNECTION STATE MACHINE 3]  Here, we receive reply from application for 
+			// AgribotIsRedyForManualModeAndFinishedAllThePendingJobs message
+			IF RX_Frame.udiCanID = en_canFrameID.CAN_ID_ManualOK THEN
+				IF (GVL.manualControl.getManualState() = en_manualModeState.WAIT_CONFIRMATION) THEN 	//check if agribot is ready and waiting
+					GVL.manualControl.setManualStatus(en_manualModeState.ACTIVE);						//received the manual control confirmation, manual control is active from that moment
+					status:=en_commStatus.MANUAL;														//activate reading of move commands
+				END_IF
+			END_IF
+			
 		END_WHILE
 END_IF
 
@@ -1869,14 +1906,6 @@ CAN bus recover
                       <type>
                         <DWORD />
                       </type>
-                    </variable>
-                    <variable name="ManualNotConfirmed">
-                      <type>
-                        <BOOL />
-                      </type>
-                      <initialValue>
-                        <simpleValue value="FALSE" />
-                      </initialValue>
                     </variable>
                     <variable name="licznik">
                       <type>
@@ -2535,21 +2564,6 @@ END_IF
 						END_IF
 					//=======================================================================================================
 					//prepare for the arc				
-(*					ELSIF CANwirelessRXblock.udiID=CAN_ID_CommandPrepArc THEN
-						IF GVL.Manual_IS_BUSY THEN
-							DATA_TX[0]:=CAN_ID_CommandPrepArc;  //send error code BUSY
-							DATA_TX[1]:=16#0F;
-							CANwirelessTXblock(eChannel:=ifmDevice.CHAN_3, udiID:=CAN_ID_TXManualError, xExtended:=FALSE, usiDLC:=2,aData:=DATA_TX, xEnable:=TRUE);	
-						ELSE 	
-						//set proper setpoints for MainLogic
-						//changing carts rotation to 0 degrees
-							GVL.Manual_Align_Command:=TRUE; //the main logic will set it to false when is done
-							DATA_TX[0]:=CAN_ID_CommandPrepArc; 
-							GVL.Manual_Arc_Radius:=0;
-							CANwirelessTXblock(eChannel:=ifmDevice.CHAN_3, udiID:=CAN_ID_CommandAlign, xExtended:=FALSE, usiDLC:=1,aData:=DATA_TX, xEnable:=TRUE);							
-						END_IF
-*)
-				//=======================================================================================================
 				//move along the arc
 				ELSIF CANwirelessRXblock.udiID=CAN_ID_CommandArc THEN	
 						ArcDir:=DATA_RX[1]; //przod tyl
@@ -2631,7 +2645,6 @@ END_IF
 					END_IF
 					DATA_TX[0]:=CAN_ID_CommandSetRPM;
 					CANwirelessTXblock(eChannel:=ifmDevice.CHAN_3, udiID:=CAN_ID_CommandSetRPM , xExtended:=FALSE, usiDLC:=1,aData:=DATA_TX, xEnable:=TRUE);							
-
 				//=======================================================================================================
 				//align one cart to another cart
 				ELSIF CANwirelessRXblock.udiID=CAN_ID_CommandAlignCartToCart THEN
@@ -2728,7 +2741,7 @@ END_IF
 					END_IF	
 				END_IF
 			END_IF
-		//=======================================================================================================
+
 		//if received a hearbeat, then reset the timer, if wrong number send error
 			IF CANwirelessRXblock.udiID=CAN_ID_Heartbeat THEN
 				IF hearbeat_counter=255 THEN
@@ -4059,11 +4072,6 @@ END_IF
                         <BOOL />
                       </type>
                     </variable>
-                    <variable name="ManualControlDemand">
-                      <type>
-                        <BOOL />
-                      </type>
-                    </variable>
                     <variable name="ComCart1Rot">
                       <type>
                         <BOOL />
@@ -4217,23 +4225,11 @@ setpoints for carts angles</xhtml>
                 </body>
                 <addData>
                   <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
-                    <Method name="setManualModeInactive" ObjectId="1fe42464-aeba-440a-bf56-4ea551dc0db6">
-                      <interface />
-                      <body>
-                        <ST>
-                          <xhtml xmlns="http://www.w3.org/1999/xhtml">ManualControlState := en_manualModeState.NO_DEMAND;</xhtml>
-                        </ST>
-                      </body>
-                      <addData />
-                    </Method>
-                  </data>
-                  <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
                     <Method name="stopAllStartedActions" ObjectId="b5e5ba74-e233-4786-9c7c-9a4d474512f9">
                       <interface />
                       <body>
                         <ST>
-                          <xhtml xmlns="http://www.w3.org/1999/xhtml">ManualControlDemand:=FALSE; 
-ComCart1Rot:=FALSE;
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml">ComCart1Rot:=FALSE;
 ComCart2Rot:=FALSE;
 ComCart1RotDir:=FALSE;
 ComCart2RotDir:=FALSE;
@@ -4250,8 +4246,1487 @@ ComCartBackStraight:=FALSE;
                       <addData />
                     </Method>
                   </data>
+                  <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+                    <Method name="setManualModeInactive" ObjectId="1fe42464-aeba-440a-bf56-4ea551dc0db6">
+                      <interface />
+                      <body>
+                        <ST>
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml">ManualControlState := en_manualModeState.NO_DEMAND;</xhtml>
+                        </ST>
+                      </body>
+                      <addData />
+                    </Method>
+                  </data>
+                  <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+                    <Method name="setManualStatus" ObjectId="af7ca618-422e-4f7d-9e46-d8b1416e8173">
+                      <interface>
+                        <inputVars>
+                          <variable name="desiredState">
+                            <type>
+                              <derived name="en_manualModeState" />
+                            </type>
+                          </variable>
+                        </inputVars>
+                      </interface>
+                      <body>
+                        <ST>
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml">//Set manual state 
+IF desiredState &gt;= 0 AND desiredState &lt;= 5 THEN
+	ManualControlState := desiredState;
+END_IF</xhtml>
+                        </ST>
+                      </body>
+                      <addData />
+                    </Method>
+                  </data>
+                  <data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+                    <Method name="getManualState" ObjectId="63802f61-ae5a-451c-8722-8999066b286d">
+                      <interface>
+                        <returnType>
+                          <USINT />
+                        </returnType>
+                      </interface>
+                      <body>
+                        <ST>
+                          <xhtml xmlns="http://www.w3.org/1999/xhtml">//Method returns ManualMode state
+getManualState := ManualControlState;</xhtml>
+                        </ST>
+                      </body>
+                      <addData />
+                    </Method>
+                  </data>
                   <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
                     <ObjectId>beb9497c-a90d-4efd-a9b5-aa241c8ef363</ObjectId>
+                  </data>
+                </addData>
+              </pou>
+            </data>
+            <data name="http://www.3s-software.com/plcopenxml/pou" handleUnknown="implementation">
+              <pou name="Main_Logic" pouType="program">
+                <interface>
+                  <localVars>
+                    <variable name="prescaler">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="licznik">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="faza">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="set_pointLEFT">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="set_pointRIGHT">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="AgribotFrontTracks">
+                      <type>
+                        <derived name="PIDFront" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotBackTracks">
+                      <type>
+                        <derived name="PIDBack" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotFrontTracks_TRAJ">
+                      <type>
+                        <derived name="PID_Trajectory_Front" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotBackTracks_TRAJ">
+                      <type>
+                        <derived name="PID_Trajectory_Back" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotStraight">
+                      <type>
+                        <derived name="PIDStraightSynchro" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotAlign">
+                      <type>
+                        <derived name="PIDAlign" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotStabilization">
+                      <type>
+                        <derived name="PIDStabilization" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotSetFront">
+                      <type>
+                        <derived name="PIDSetAngle_Front" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotSetBack">
+                      <type>
+                        <derived name="PIDSetAngle_Back" />
+                      </type>
+                    </variable>
+                    <variable name="AgribotFollowGPSPoint">
+                      <type>
+                        <derived name="FollowGPSPoint" />
+                      </type>
+                    </variable>
+                    <variable name="VelStraight">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.3" />
+                      </initialValue>
+                    </variable>
+                    <variable name="VelFront">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="VelAngFront">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="AccelerationFront">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.01" />
+                      </initialValue>
+                    </variable>
+                    <variable name="VelBack">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="VelAngBack">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="AngVelArc">
+                      <type>
+                        <REAL />
+                      </type>
+                    </variable>
+                    <variable name="VelArc">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.5" />
+                      </initialValue>
+                    </variable>
+                    <variable name="AccelerationBack">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.01" />
+                      </initialValue>
+                    </variable>
+                    <variable name="BackControlLeftSignal">
+                      <type>
+                        <SINT />
+                      </type>
+                    </variable>
+                    <variable name="BackControlRightSignal">
+                      <type>
+                        <SINT />
+                      </type>
+                    </variable>
+                    <variable name="FrontControlLeftSignal">
+                      <type>
+                        <SINT />
+                      </type>
+                    </variable>
+                    <variable name="FrontControlRightSignal">
+                      <type>
+                        <SINT />
+                      </type>
+                    </variable>
+                    <variable name="AngleToSet">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="45" />
+                      </initialValue>
+                    </variable>
+                    <variable name="AngleStabSet">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="RotateAgribot">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="RotateAgribotDir">
+                      <type>
+                        <BOOL />
+                      </type>
+                    </variable>
+                    <variable name="Front_Rotation_Error">
+                      <type>
+                        <REAL />
+                      </type>
+                    </variable>
+                    <variable name="Rotate_Front">
+                      <type>
+                        <REAL />
+                      </type>
+                    </variable>
+                    <variable name="Prev_Front_Rotation_Error">
+                      <type>
+                        <REAL />
+                      </type>
+                    </variable>
+                    <variable name="Switch_iterator">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="1" />
+                      </initialValue>
+                    </variable>
+                    <variable name="ArcRadiusTEST">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="20" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Velocity">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="20" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Angle">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Arc_time">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="l">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="215.6" />
+                      </initialValue>
+                    </variable>
+                    <variable name="l_seed">
+                      <type>
+                        <REAL />
+                      </type>
+                    </variable>
+                    <variable name="l_div">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="8.64" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Previous_Arc_Radius">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Arc_Front_T_Set_Point">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Arc_Front_R_Set_point">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Arc_Back_T_Set_Point">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Arc_Back_R_Set_point">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="T_Set_point_F">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="210" />
+                      </initialValue>
+                    </variable>
+                    <variable name="R_Set_point_F">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="20" />
+                      </initialValue>
+                    </variable>
+                    <variable name="T_Set_point_B">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="200" />
+                      </initialValue>
+                    </variable>
+                    <variable name="R_Set_point_B">
+                      <type>
+                        <INT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Speed_Traj_lin">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="1" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Speed_Traj_Rot">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.2" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Speed_Traj_Rot_Setpoint">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.2" />
+                      </initialValue>
+                    </variable>
+                    <variable name="accelerationT">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.1" />
+                      </initialValue>
+                    </variable>
+                    <variable name="accelerationR">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.1" />
+                      </initialValue>
+                    </variable>
+                    <variable name="deaccelerationR">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0.2" />
+                      </initialValue>
+                    </variable>
+                    <variable name="sequence_counter">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="sequence_target">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="3" />
+                      </initialValue>
+                    </variable>
+                    <variable name="RESET_Traj_trigger">
+                      <type>
+                        <BOOL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="FALSE" />
+                      </initialValue>
+                    </variable>
+                    <variable name="Timer_Period">
+                      <type>
+                        <TIME />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="TIME#50ms" />
+                      </initialValue>
+                    </variable>
+                    <variable name="dummystartLAT">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="51" />
+                      </initialValue>
+                    </variable>
+                    <variable name="dummystartLON">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="16" />
+                      </initialValue>
+                    </variable>
+                    <variable name="dummyendLAT">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="52" />
+                      </initialValue>
+                    </variable>
+                    <variable name="dummyendLON">
+                      <type>
+                        <REAL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="17" />
+                      </initialValue>
+                    </variable>
+                  </localVars>
+                </interface>
+                <body>
+                  <ST>
+                    <xhtml xmlns="http://www.w3.org/1999/xhtml">
+//checking if under manual control
+IF GVL.ManualControlState&lt;&gt;3 THEN
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//autonomic routine
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	IF GVL.ManualControlDemand THEN
+		GVL.ManualControlState:=1; //getting ready for manual control
+		//do stuff to get ready for manual control, check if done
+		//if stuff done then 
+		GVL.ManualControlState:=2; //waiting for the apps command to confirm the start of manual control
+		GVL.ManualControlDemand:=FALSE; //demand to false because we are already waiting
+		//else continue
+	END_IF
+	
+	AgribotFrontTracks(Velocity:=0, AngleVelocity:=VelAngFront, Acceleration:=2*AccelerationFront, RESET:=TRUE);
+	AgribotBackTracks(Velocity:=0, AngleVelocity:=VelAngBack, Acceleration:=2*AccelerationBack, RESET:=TRUE);
+	
+	GVL.Valve_4_Command:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+	GVL.Valve_0_Command:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);
+	
+	GVL.Valve_2_Command:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+	GVL.Valve_1_Command:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+	
+	BackControlLeftSignal:=INT_TO_SINT(0);
+	BackControlRightSignal:=INT_TO_SINT(0);
+	FrontControlLeftSignal:= INT_TO_SINT(0);
+	FrontControlRightSignal:= INT_TO_SINT(0);
+	
+	//Set switches off
+	Switch_iterator:=1;
+	WHILE Switch_iterator&lt;=12 DO
+		GVL.SwitchState[Switch_iterator]:=FALSE;
+		GVL.SwitchSetLevel[Switch_iterator]:=0;
+		Switch_iterator:=Switch_iterator+1;
+	END_WHILE
+	GVL.Valve_5_Command:=0;
+	GVL.Valve_6_Command:=0;
+	GVL.Valve_7_Command:=0;
+	GVL.Valve_8_Command:=0;
+	GVL.Valve_9_Command:=0;
+	GVL.Valve_10_Command:=0;
+	GVL.Valve_11_Command:=0;
+	GVL.Valve_12_Command:=0;
+	
+	//EngineOff
+	GVL.ManualStartEngineRequest:=FALSE;
+	GVL.Manual_Arc_Continue:=FALSE; 
+	RESET_Traj_trigger:=false;
+	//sequence_counter:=0;
+ELSE
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//manual control routine
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+IF GVL.EnginesReady THEN
+		
+			//check gps got fixed and we have a target
+			IF GVL.GPSFix=3 AND (GVL.TargetLongitude&lt;&gt;0 AND GVL.TargetLatitude&lt;&gt;0) THEN
+				AgribotFollowGPSPoint();
+				FrontControlLeftSignal:=AgribotFollowGPSPoint.Front_Left_Signal;
+				FrontControlRightSignal:=AgribotFollowGPSPoint.Front_Right_Signal;
+				BackControlLeftSignal:=AgribotFollowGPSPoint.Back_Left_Signal;
+				BackControlRightSignal:=AgribotFollowGPSPoint.Back_Right_Signal;
+			END_IF
+	
+
+		//====================================================================================================//
+		//switches commands 
+		//====================================================================================================//
+		//set PTO TYŁ
+		IF GVL.SwitchState[7]=TRUE THEN
+			GVL.Valve_8_Command:=USINT_TO_SINT(GVL.SwitchSetLevel[7]);
+			//GVL.Valve_8_Command:=0;	
+		ELSE
+			GVL.Valve_8_Command:=0;	
+		END_IF
+		
+		//set tuz TYŁ DÓŁ
+		IF GVL.SwitchState[11]=TRUE THEN
+			IF GVL.SwitchSetLevel[11]&lt;&gt;0 AND GVL.SwitchSetLevel[11]&lt;&gt;1 THEN
+				IF GVL.SwitchSetLevel[11]&lt;=50 THEN //opuszczaj tuz tył dół
+					GVL.Valve_9_Command:=INT_TO_SINT(-(USINT_TO_SINT(25-GVL.SwitchSetLevel[11]/2)));
+				ELSE //podnies tuz tył dół
+					GVL.Valve_9_Command:=USINT_TO_SINT((GVL.SwitchSetLevel[11]-50)/2);
+				END_IF
+			ELSE
+				GVL.Valve_9_Command:=0;	
+			END_IF
+		ELSE
+			GVL.Valve_9_Command:=0;	
+		END_IF
+		//set tuz TYŁ GÓRA
+		IF GVL.SwitchState[12]=TRUE THEN
+			IF GVL.SwitchSetLevel[12]&lt;&gt;0 AND GVL.SwitchSetLevel[12]&lt;&gt;1 THEN
+				IF GVL.SwitchSetLevel[12]&lt;=50 THEN //opuszczaj tuz tył dół
+					GVL.Valve_10_Command:=INT_TO_SINT(-(USINT_TO_SINT(25-GVL.SwitchSetLevel[12]/2)));
+				ELSE //podnies tuz tył dół
+					GVL.Valve_10_Command:=USINT_TO_SINT((GVL.SwitchSetLevel[12]-50)/2);
+				END_IF
+			ELSE
+				GVL.Valve_10_Command:=0;	
+			END_IF
+		ELSE
+			GVL.Valve_10_Command:=0;	
+		END_IF
+		
+		//set PTO PRZÓD
+		IF GVL.SwitchState[1]=TRUE THEN
+			GVL.Valve_11_Command:=USINT_TO_SINT(GVL.SwitchSetLevel[1]);
+		ELSE
+			GVL.Valve_11_Command:=0;	
+		END_IF
+		
+		//set tuz PRZÓD DÓŁ
+		IF GVL.TUZ_D_F_SWITCH=1 THEN
+			IF GVL.SwitchState[5]=TRUE THEN
+				IF GVL.SwitchSetLevel[5]&lt;&gt;0 AND GVL.SwitchSetLevel[5]&lt;&gt;1 THEN
+					IF GVL.SwitchSetLevel[5]&lt;=50 THEN //opuszczaj tuz tył dół
+						GVL.Valve_6_Command:=INT_TO_SINT(-(USINT_TO_SINT(25-GVL.SwitchSetLevel[5]/2)));
+					ELSE //podnies tuz tył dół
+						GVL.Valve_6_Command:=USINT_TO_SINT((GVL.SwitchSetLevel[5]-50)/2);
+					END_IF
+				ELSE
+					GVL.Valve_6_Command:=0;	
+				END_IF
+			ELSE
+				GVL.Valve_6_Command:=0;	
+			END_IF
+		END_IF
+		//set tuz PRZÓD GÓRA
+		IF GVL.TUZ_G_F_SWITCH=1 THEN
+			IF GVL.SwitchState[6]=TRUE THEN
+				IF GVL.SwitchSetLevel[6]&lt;&gt;0 AND GVL.SwitchSetLevel[6]&lt;&gt;1 THEN
+					IF GVL.SwitchSetLevel[6]&lt;=50 THEN //opuszczaj tuz tył dół
+						GVL.Valve_7_Command:=INT_TO_SINT(-(USINT_TO_SINT(25-GVL.SwitchSetLevel[6]/2)));
+					ELSE //podnies tuz tył dół
+						GVL.Valve_7_Command:=USINT_TO_SINT((GVL.SwitchSetLevel[6]-50)/2);
+					END_IF
+				ELSE
+					GVL.Valve_7_Command:=0;	
+				END_IF
+			ELSE
+				GVL.Valve_7_Command:=0;	
+			END_IF
+		END_IF
+	
+		
+		
+		//====================================================================================================//
+		//Follow the point/route
+		//===================================================================================================//
+		(* IF GVL.Manual_Follow_Route=TRUE THEN
+			//get current situation
+			//starting point is agribots localisation, the next point is his next desired localisation
+			getBearing(startLON:=GVL.Longitude, startLAT:=GVL.Latitude, endLON:=GVL.TargetLongitude, endLAT:=GVL.TargetLatitude);
+			GVL.BearingToTarget:=getBearing.bearing;
+			//find your heading
+			//if heading have proper accuracy, try to estimate the direction
+			IF GVL.GPSHeadingAccuracy&lt;=6 THEN
+				GPSTargetDeltaBearing:=GVL.GPSHeading-GVL.BearingToTarget;
+			END_IF
+			//check heading from previous localisation
+			pointsHeading:=GVL.GPS_Heading_History[GVL.GPS_Last_Positions_Index].bearing;
+			pointsHeadingAccuracy:=GVL.GPS_Heading_History[GVL.GPS_Last_Positions_Index].AccNote;
+			
+			//find relative bearing
+			relBearing(bearing0:=GVL.BearingToTarget, bearing1:= GVL.GPSHeading);
+			IF relBearing.clock_dir=TRUE THEN
+				GPSTargetDeltaBearing:=relBearing.relative_bearing;
+			ELSE
+				GPSTargetDeltaBearing:=-relBearing.relative_bearing;
+			END_IF
+			
+			getDistance(startLON:=GVL.Longitude, startLAT:=GVL.Latitude, endLON:=GVL.TargetLongitude, endLAT:=GVL.TargetLatitude);
+			getDistance.dist_m; 
+			
+			*)
+		//====================================================================================================//
+		//align command
+		//===================================================================================================//
+		IF GVL.Manual_Align_Command=TRUE THEN
+			AgribotAlign(SetAngle:=GVL.Manual_Set_Angle_Front_SetPoint);
+			IF AgribotAlign.Align_State THEN
+				GVL.Manual_Carts_Aligned:=TRUE;
+				GVL.Manual_Align_Command:=FALSE;
+				GVL.Manual_IS_BUSY:=FALSE;
+			ELSE 
+				GVL.Manual_IS_BUSY:=TRUE;
+				AgribotFrontTracks(Velocity:=0, AngleVelocity:=AgribotAlign.Rotate_Front, Acceleration:=AccelerationFront, RESET:=FALSE);
+				AgribotBackTracks(Velocity:=0, AngleVelocity:=AgribotAlign.Rotate_Back, Acceleration:=AccelerationBack, RESET:=FALSE);
+
+				FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+				FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+				BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+				BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);		
+			END_IF
+		//====================================================================================================//
+		//set front command
+		//===================================================================================================//
+		//IF GVL.Manual_Set_Front_Command=TRUE THEN
+		ELSIF GVL.Manual_Set_Front_Command=TRUE THEN
+			AgribotSetFront(SetAngle:=GVL.Manual_Set_Angle_Front_SetPoint);
+			IF AgribotSetFront.Align_State THEN
+				GVL.Manual_Set_Front_Command:=FALSE;
+				GVL.Manual_IS_BUSY:=FALSE;
+			ELSE 
+				GVL.Manual_IS_BUSY:=TRUE;
+				AgribotFrontTracks(Velocity:=0, AngleVelocity:=AgribotSetFront.Rotate_Front, Acceleration:=AccelerationFront, RESET:=FALSE);
+				
+				FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+				FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+				BackControlLeftSignal:=0;
+				BackControlRightSignal:=0;		
+			END_IF
+		//====================================================================================================//
+		//set back command
+		//===================================================================================================//
+		ELSIF GVL.Manual_Set_Back_Command=TRUE THEN
+			
+			AgribotSetBack(SetAngle:=GVL.Manual_Set_Angle_Back_SetPoint);
+			IF AgribotSetBack.Align_State THEN
+				GVL.Manual_Set_Back_Command:=FALSE;
+				GVL.Manual_IS_BUSY:=FALSE;	
+			ELSE 
+				GVL.Manual_IS_BUSY:=TRUE;
+				AgribotBackTracks(Velocity:=0, AngleVelocity:=AgribotSetBack.Rotate_Back, Acceleration:=AccelerationBack, RESET:=FALSE);
+
+				FrontControlLeftSignal:=0;
+				FrontControlRightSignal:=0;
+				BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+				BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);		
+			END_IF
+			
+		//====================================================================================================//
+		//straight command
+		//===================================================================================================//
+		ELSIF GVL.ComCartsStraight THEN
+			IF GVL.ComCartsStraightDir THEN
+				AgribotStraight(Velocity:=VelStraight);
+				//rotation corrections
+				AgribotSetFront(SetAngle:=GVL.Manual_Set_Angle_Front_SetPoint);
+				AgribotSetBack(SetAngle:=GVL.Manual_Set_Angle_Back_SetPoint);
+				
+				AgribotFrontTracks(Velocity:=AgribotStraight.TransSignal_Front, AngleVelocity:=AgribotSetFront.Rotate_Front, Acceleration:=AccelerationFront, RESET:=FALSE);
+				AgribotBackTracks(Velocity:=AgribotStraight.TransSignal_Back, AngleVelocity:=AgribotSetBack.Rotate_Back, Acceleration:=AccelerationBack, RESET:=FALSE);
+				
+				//AgribotFrontTracks(Velocity:=AgribotStraight.TransSignal_Front, AngleVelocity:=0, Acceleration:=AccelerationFront, RESET:=FALSE);
+				//AgribotBackTracks(Velocity:=AgribotStraight.TransSignal_Back, AngleVelocity:=0, Acceleration:=AccelerationBack, RESET:=FALSE);
+				
+				BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+				BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);
+				FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+				FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+			ELSE
+				AgribotStraight(Velocity:=-VelStraight);
+				AgribotSetFront(SetAngle:=GVL.Manual_Set_Angle_Front_SetPoint);
+				AgribotSetBack(SetAngle:=GVL.Manual_Set_Angle_Back_SetPoint);
+				
+				AgribotFrontTracks(Velocity:=AgribotStraight.TransSignal_Front, AngleVelocity:=AgribotSetFront.Rotate_Front, Acceleration:=AccelerationFront, RESET:=FALSE);
+				AgribotBackTracks(Velocity:=AgribotStraight.TransSignal_Back, AngleVelocity:=AgribotSetBack.Rotate_Back, Acceleration:=AccelerationBack, RESET:=FALSE);
+				
+				BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+				BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);
+				FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+				FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+			END_IF
+		
+		//------------------------------------------------------------------------------------	
+		//move back tracks	
+		ELSIF GVL.ComCartBackStraight THEN
+			IF GVL.ComCartsStraightDir THEN
+				AgribotBackTracks(Velocity:=-VelStraight, AngleVelocity:=0, Acceleration:=AccelerationBack, RESET:=FALSE);
+			ELSE
+				AgribotBackTracks(Velocity:=VelStraight, AngleVelocity:=0, Acceleration:=AccelerationBack, RESET:=FALSE);
+			END_IF
+			BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+			BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);
+			FrontControlLeftSignal:=INT_TO_SINT(0);
+			FrontControlRightSignal:=INT_TO_SINT(0);
+			
+		//------------------------------------------------------------------------------------	
+		//move front tracks
+		ELSIF GVL.ComCartFrontStraight THEN	
+			IF GVL.ComCartsStraightDir THEN
+				AgribotFrontTracks(Velocity:=VelStraight, AngleVelocity:=0, Acceleration:=AccelerationBack, RESET:=FALSE);
+			ELSE
+				AgribotFrontTracks(Velocity:=-VelStraight, AngleVelocity:=0, Acceleration:=AccelerationBack, RESET:=FALSE);
+			END_IF
+			BackControlLeftSignal:=INT_TO_SINT(0);
+			BackControlRightSignal:=INT_TO_SINT(0);
+			FrontControlLeftSignal:= INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+			FrontControlRightSignal:= INT_TO_SINT(AgribotFrontTracks.Control_Right_Signal);
+			
+		//====================================================================================================//
+		//rotate tracks command
+		//===================================================================================================//
+		ELSIF GVL.ComCart1Rot OR GVL.ComCart2Rot THEN
+			IF GVL.ComCart1Rot THEN
+				IF GVL.ComCart1RotDir THEN
+					AgribotFrontTracks(Velocity:=0, AngleVelocity:=0.2, Acceleration:=AccelerationFront, RESET:=FALSE);
+				ELSE
+					AgribotFrontTracks(Velocity:=0, AngleVelocity:=-0.2, Acceleration:=AccelerationFront, RESET:=FALSE);
+				END_IF
+				FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+				FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);	
+			ELSE
+				AgribotFrontTracks(Velocity:=0, AngleVelocity:=0, Acceleration:=AccelerationFront, RESET:=TRUE);
+				FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+				FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+			END_IF
+			IF GVL.ComCart2Rot THEN 
+				IF GVL.ComCart2RotDir THEN
+					AgribotBackTracks(Velocity:=0, AngleVelocity:=0.2, Acceleration:=AccelerationBack, RESET:=FALSE);
+				ELSE 
+					AgribotBackTracks(Velocity:=0, AngleVelocity:=-0.2, Acceleration:=AccelerationBack, RESET:=FALSE);
+				END_IF
+				BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+				BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);
+			ELSE
+				AgribotBackTracks(Velocity:=0, AngleVelocity:=0, Acceleration:=AccelerationBack, RESET:=TRUE);
+				BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+				BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);
+			END_IF
+			
+		//====================================================================================================//
+		//rotate agribot command
+		//===================================================================================================//
+		ELSIF RotateAgribot THEN
+				IF GVL.Front_Cart_Rotation&lt;0 THEN
+					//utrzymaj -90
+					Front_Rotation_Error:=-90-GVL.Front_Cart_Rotation;
+				ELSE
+					//utrzymaj 90
+					Front_Rotation_Error:=90-GVL.Front_Cart_Rotation;
+				END_IF
+				//wylicz korekte rotacji
+				Rotate_Front:=0.02*Front_Rotation_Error+0.1*(Front_Rotation_Error-Prev_Front_Rotation_Error);
+				Prev_Front_Rotation_Error:=Front_Rotation_Error;
+				IF Rotate_Front&gt;=0 THEN
+					IF Rotate_Front&gt;0.1 THEN
+						Rotate_Front:=0.1;
+					END_IF
+				ELSE 
+					IF Rotate_Front&lt;-0.1 THEN
+						Rotate_Front:=-0.1;
+					END_IF
+				END_IF
+				IF RotateAgribotDir THEN
+					AgribotFrontTracks(Velocity:=0.2, AngleVelocity:=Rotate_Front, Acceleration:=AccelerationFront, RESET:=FALSE);
+				ELSE 
+					AgribotFrontTracks(Velocity:=-0.2, AngleVelocity:=Rotate_Front, Acceleration:=AccelerationFront, RESET:=FALSE);
+				END_IF
+				FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+				FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+				
+		//====================================================================================================//
+		//arc command 
+		//===================================================================================================//			
+		ELSIF GVL.Manual_Arc_Radius&lt;&gt;0 THEN
+
+			//sequence_target:=REAL_TO_USINT(180/Angle);	
+			IF GVL.Manual_Arc_Continue THEN
+				//pierwszy segment
+				IF sequence_counter=0 THEN
+					l_seed:=l/l_div;
+					Speed_Traj_lin:=((Velocity*2)/2.2)/10; // 0.68 tick/s
+					Angle:=(l_seed*360)/(6.283185*GVL.Manual_Arc_Radius*10); //deg
+					Arc_time:=l_seed/Velocity; //sekundy
+					IF GVL.Manual_Arc_Fr THEN
+						R_Set_point_F:=REAL_TO_INT(Angle*0.53); //ticks
+						Speed_Traj_Rot:=(R_Set_point_F/Arc_time)/10;
+					ELSE
+						R_Set_point_B:=REAL_TO_INT(Angle*0.53); //ticks
+						Speed_Traj_Rot:=(R_Set_point_B/Arc_time)/10;
+					END_IF
+					
+					T_Set_point_F:=REAL_TO_INT((l_seed/2.2)*2); //ticks
+					T_Set_point_B:=REAL_TO_INT((l_seed/2.2)*2); //ticks
+					
+					IF GVL.Manual_Arc_Fr THEN
+						Arc_Front_T_Set_Point:=T_Set_point_F;
+						IF GVL.Manual_Arc_Dir THEN
+							Arc_Front_R_Set_point:=R_Set_point_F;
+							Speed_Traj_Rot_Setpoint:=Speed_Traj_Rot;
+						ELSE
+							Arc_Front_R_Set_point:=-R_Set_point_F;
+							Speed_Traj_Rot_Setpoint:=-Speed_Traj_Rot;
+						END_IF
+						Arc_Back_T_Set_Point:=T_Set_point_B;
+						Arc_Back_R_Set_point:=0;
+					
+					ELSE
+						Arc_Back_T_Set_Point:=T_Set_point_B;						
+						IF GVL.Manual_Arc_Dir THEN
+							Arc_Back_R_Set_point:=-R_Set_point_B;
+							Speed_Traj_Rot_Setpoint:=-Speed_Traj_Rot;
+						ELSE
+							Arc_Back_R_Set_point:=R_Set_point_B;
+							Speed_Traj_Rot_Setpoint:=Speed_Traj_Rot;
+						END_IF
+						Arc_Front_T_Set_Point:=T_Set_point_B;
+						Arc_Front_R_Set_point:=0;
+					
+					END_IF
+					sequence_counter:=1; //oznacz ze juz wykonuje się pierwsza sekwencja
+					Previous_Arc_Radius:=GVL.Manual_Arc_Radius;
+					//initilize pid
+					AgribotFrontTracks_TRAJ(max_acceleration_linear:=accelerationT, max_acceleration_rotational:=accelerationR, 
+					max_deacceleration_linear:=0.2, max_deacceleration_rotational:=0.1,
+					R_Setpoint:=R_Set_point_F, S_Setpoint:=T_Set_point_F, speed_desired_linear:=Speed_Traj_lin,
+					 speed_desired_end_linear:=0, speed_desired_rotational:=Speed_Traj_Rot_Setpoint, speed_desired_end_rotational:=Speed_Traj_Rot_Setpoint,
+					TIMER_PERIOD:=Timer_Period, RESET:=TRUE);
+			
+					AgribotBackTracks_TRAJ(max_acceleration_linear:=1, max_acceleration_rotational:=1, 
+					max_deacceleration_linear:=1, max_deacceleration_rotational:=1,
+					R_Setpoint:=R_Set_point_B, S_Setpoint:=T_Set_point_B, speed_desired_linear:=Speed_Traj_lin, 
+					speed_desired_end_linear:=0, speed_desired_rotational:=Speed_Traj_Rot_Setpoint, speed_desired_end_rotational:=Speed_Traj_Rot_Setpoint,
+					TIMER_PERIOD:=Timer_Period, RESET:=TRUE);
+					
+				END_IF
+				//****************************************************
+				IF (Previous_Arc_Radius&lt;&gt;GVL.Manual_Arc_Radius) THEN
+					//l_seed:=l/l_div;
+					Speed_Traj_lin:=((Velocity*2)/2.2)/10; // 0.68 tick/s
+					Angle:=(l_seed*360)/(6.283185*GVL.Manual_Arc_Radius*10); //deg
+					Arc_time:=l_seed/Velocity; //sekundy
+					IF GVL.Manual_Arc_Fr THEN
+						R_Set_point_F:=REAL_TO_INT(Angle*0.53); //ticks
+						Speed_Traj_Rot:=(R_Set_point_F/Arc_time)/10;
+					ELSE
+						R_Set_point_B:=REAL_TO_INT(Angle*0.53); //ticks
+						Speed_Traj_Rot:=(R_Set_point_B/Arc_time)/10;
+					END_IF
+					
+					T_Set_point_F:=REAL_TO_INT((l_seed/2.2)*2); //ticks
+					T_Set_point_B:=REAL_TO_INT((l_seed/2.2)*2); //ticks		
+					Previous_Arc_Radius:=GVL.Manual_Arc_Radius;	
+				END_IF
+				//****************************************************
+				IF GVL.Manual_Arc_Dir THEN
+					IF GVL.Manual_Arc_Fr THEN
+						IF AgribotFrontTracks_TRAJ.S_current&gt;=(INT_TO_REAL(Arc_Front_T_Set_Point)-0.1*l_seed) THEN
+							Arc_Front_T_Set_Point:=Arc_Front_T_Set_Point+T_Set_point_F;
+							Arc_Front_R_Set_point:=Arc_Front_R_Set_point+R_Set_point_F;
+							Arc_Back_T_Set_Point:=Arc_Back_T_Set_Point+T_Set_point_B;
+							IF Arc_Back_T_Set_Point&gt;=l THEN
+								Arc_Back_R_Set_point:=Arc_Back_R_Set_point+R_Set_point_F;
+							END_IF
+						END_IF
+						Speed_Traj_Rot_Setpoint:=Speed_Traj_Rot;
+						accelerationT:=0.02;
+						accelerationR:=0.1;
+						deaccelerationR:=0.1;
+					ELSE
+						IF AgribotBackTracks_TRAJ.S_current&gt;=(INT_TO_REAL(Arc_Back_T_Set_Point)-0.1*l_seed) THEN
+							Arc_Front_T_Set_Point:=Arc_Front_T_Set_Point+T_Set_point_F;
+							IF Arc_Front_T_Set_Point&gt;=l THEN
+								Arc_Front_R_Set_point:=Arc_Front_R_Set_point-R_Set_point_B;
+							END_IF
+							Arc_Back_T_Set_Point:=Arc_Back_T_Set_Point+T_Set_point_B;
+							Arc_Back_R_Set_point:=Arc_Back_R_Set_point-R_Set_point_B;
+						END_IF
+						Speed_Traj_Rot_Setpoint:=-Speed_Traj_Rot;
+						accelerationT:=0.02;
+						accelerationR:=0.1;
+						deaccelerationR:=0.1;
+					END_IF
+				ELSE
+					IF GVL.Manual_Arc_Fr THEN
+						IF AgribotFrontTracks_TRAJ.S_current&gt;=(INT_TO_REAL(Arc_Front_T_Set_Point)-0.1*l_seed) THEN
+							Arc_Front_T_Set_Point:=Arc_Front_T_Set_Point+T_Set_point_F;
+							Arc_Front_R_Set_point:=Arc_Front_R_Set_point-R_Set_point_F;
+							Arc_Back_T_Set_Point:=Arc_Back_T_Set_Point+T_Set_point_B;
+							IF Arc_Back_T_Set_Point&gt;=l THEN
+								Arc_Back_R_Set_point:=Arc_Back_R_Set_point-R_Set_point_F;
+							END_IF
+						END_IF
+							Speed_Traj_Rot_Setpoint:=-Speed_Traj_Rot;
+							accelerationT:=0.02;
+							accelerationR:=0.1;
+							deaccelerationR:=0.1;
+					ELSE
+						IF AgribotBackTracks_TRAJ.S_current&gt;=(INT_TO_REAL(Arc_Back_T_Set_Point)-0.1*l_seed) THEN
+							Arc_Front_T_Set_Point:=Arc_Front_T_Set_Point+T_Set_point_F;
+							IF Arc_Front_T_Set_Point&gt;=l THEN
+								Arc_Front_R_Set_point:=Arc_Front_R_Set_point+R_Set_point_B;
+							END_IF							
+							Arc_Back_T_Set_Point:=Arc_Back_T_Set_Point+T_Set_point_B;
+							Arc_Back_R_Set_point:=Arc_Back_R_Set_point+R_Set_point_B;
+						END_IF
+						Speed_Traj_Rot_Setpoint:=Speed_Traj_Rot;
+						accelerationT:=0.02;
+						accelerationR:=0.1;
+						deaccelerationR:=0.1;
+					END_IF
+				END_IF
+				
+					AgribotFrontTracks_TRAJ(max_acceleration_linear:=accelerationT, max_acceleration_rotational:=accelerationR,
+						max_deacceleration_linear:=0.2, max_deacceleration_rotational:=deaccelerationR,
+						R_Setpoint:=Arc_Front_R_Set_Point, S_Setpoint:=Arc_Front_T_Set_Point,
+						speed_desired_linear:=Speed_Traj_lin, speed_desired_end_linear:=0,
+					 	speed_desired_rotational:=Speed_Traj_Rot_Setpoint, speed_desired_end_rotational:=Speed_Traj_Rot_Setpoint,
+						TIMER_PERIOD:=Timer_Period, RESET:=FALSE);
+			
+					AgribotBackTracks_TRAJ(max_acceleration_linear:=accelerationT, max_acceleration_rotational:=accelerationR, 
+						max_deacceleration_linear:=0.2, max_deacceleration_rotational:=deaccelerationR,
+						R_Setpoint:=Arc_Back_R_Set_Point, S_Setpoint:=Arc_Back_T_Set_Point, 
+						speed_desired_linear:=Speed_Traj_lin, speed_desired_end_linear:=0, 
+						speed_desired_rotational:=Speed_Traj_Rot_Setpoint, speed_desired_end_rotational:=Speed_Traj_Rot_Setpoint,
+						TIMER_PERIOD:=Timer_Period, RESET:=FALSE);
+				
+			ELSE
+				sequence_counter:=0;
+				Arc_Front_T_Set_Point:=0;
+				Arc_Front_R_Set_point:=0;
+				Arc_Back_T_Set_Point:=0;
+				Arc_Back_R_Set_point:=0;
+				GVL.Manual_Arc_Radius:=0;
+				AgribotFrontTracks_TRAJ(max_acceleration_linear:=accelerationT, max_acceleration_rotational:=accelerationR, max_deacceleration_linear:=0.2, max_deacceleration_rotational:=0.1,
+				R_Setpoint:=R_Set_point_F, S_Setpoint:=T_Set_point_F, speed_desired_linear:=Speed_Traj_lin, speed_desired_end_linear:=0, speed_desired_rotational:=Speed_Traj_Rot, speed_desired_end_rotational:=0,
+				TIMER_PERIOD:=Timer_Period, RESET:=TRUE);
+			
+				AgribotBackTracks_TRAJ(max_acceleration_linear:=1, max_acceleration_rotational:=1, max_deacceleration_linear:=1, max_deacceleration_rotational:=1,
+				R_Setpoint:=R_Set_point_B, S_Setpoint:=T_Set_point_B, speed_desired_linear:=Speed_Traj_lin, speed_desired_end_linear:=0, speed_desired_rotational:=Speed_Traj_Rot, speed_desired_end_rotational:=0,
+				TIMER_PERIOD:=Timer_Period, RESET:=TRUE);
+			END_IF
+
+				IF GVL.Manual_Arc_Fr THEN
+					FrontControlLeftSignal:=AgribotFrontTracks_TRAJ.Front_Left_Signal;
+					FrontControlRightSignal:=AgribotFrontTracks_TRAJ.Front_Right_Signal;
+					BackControlLeftSignal:=AgribotBackTracks_TRAJ.Back_Left_Signal;
+					BackControlRightSignal:=AgribotBackTracks_TRAJ.Back_Right_Signal;
+				ELSE
+					FrontControlLeftSignal:=INT_TO_SINT(-AgribotFrontTracks_TRAJ.Front_Left_Signal);
+					FrontControlRightSignal:=INT_TO_SINT(-AgribotFrontTracks_TRAJ.Front_Right_Signal);
+					BackControlLeftSignal:=INT_TO_SINT(-AgribotBackTracks_TRAJ.Back_Left_Signal);
+					BackControlRightSignal:=INT_TO_SINT(-AgribotBackTracks_TRAJ.Back_Right_Signal);
+				END_IF
+		//====================================================================================================//
+		//no command 
+		//===================================================================================================//
+		ELSE
+			
+			AgribotStraight(Velocity:=0);
+			AgribotFrontTracks(Velocity:=AgribotStraight.TransSignal_Front, AngleVelocity:=VelAngFront, Acceleration:=2*AccelerationFront, RESET:=TRUE);
+			AgribotBackTracks(Velocity:=AgribotStraight.TransSignal_Back, AngleVelocity:=VelAngBack, Acceleration:=2*AccelerationBack, RESET:=TRUE);
+			BackControlLeftSignal:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal);
+			BackControlRightSignal:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal);
+			FrontControlLeftSignal:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal);
+			FrontControlRightSignal:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal);
+			RESET_Traj_trigger:=FALSE;
+			//sequence_counter:=0;
+		END_IF
+		
+			GVL.Valve_4_Command:=BackControlLeftSignal;
+			GVL.Valve_0_Command:=BackControlRightSignal;
+			
+			GVL.Valve_2_Command:=FrontControlLeftSignal;
+			GVL.Valve_1_Command:=FrontControlRightSignal;
+	ELSE
+		AgribotFrontTracks(Velocity:=0, AngleVelocity:=VelAngFront, Acceleration:=2*AccelerationFront, RESET:=TRUE);
+		AgribotBackTracks(Velocity:=0, AngleVelocity:=VelAngBack, Acceleration:=2*AccelerationBack, RESET:=TRUE);
+
+		GVL.Valve_4_Command:=INT_TO_SINT(AgribotBackTracks.Control_Left_Signal); //4
+		GVL.Valve_0_Command:=INT_TO_SINT(AgribotBackTracks.Control_Right_Signal); //0
+		
+		GVL.Valve_2_Command:=INT_TO_SINT(AgribotFrontTracks.Control_Left_Signal); //2
+		GVL.Valve_1_Command:=INT_TO_SINT(AgribotFrontTracks.Control_RIGHT_Signal); //1
+		
+		Switch_iterator:=1;
+		WHILE Switch_iterator&lt;=12 DO
+			GVL.SwitchState[Switch_iterator]:=FALSE;
+			GVL.SwitchSetLevel[Switch_iterator]:=0;
+			Switch_iterator:=Switch_iterator+1;
+		END_WHILE
+		
+		GVL.Valve_5_Command:=0;
+		GVL.Valve_6_Command:=0;
+		GVL.Valve_7_Command:=0;
+		GVL.Valve_8_Command:=0;
+		GVL.Valve_9_Command:=0;
+		GVL.Valve_10_Command:=0;
+		GVL.Valve_11_Command:=0;
+		GVL.Valve_12_Command:=0;
+		
+		//sequence_counter:=0;
+		RESET_Traj_trigger:=FALSE;
+	END_IF
+END_IF	
+
+//====================================================================================================//
+//stabilization command
+//===================================================================================================//
+IF GVL.EnginesReady THEN
+	AgribotStabilization(SetPointRoll:=AngleStabSet);
+	GVL.Valve_3_Command:=INT_TO_SINT(-AgribotStabilization.StabilizationSignal);
+END_IF</xhtml>
+                  </ST>
+                </body>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+                    <ObjectId>d9a49afc-7bed-4709-9077-5983229879f3</ObjectId>
+                  </data>
+                </addData>
+              </pou>
+            </data>
+            <data name="http://www.3s-software.com/plcopenxml/pou" handleUnknown="implementation">
+              <pou name="Valve_Set" pouType="program">
+                <interface>
+                  <localVars>
+                    <variable name="ValvesVal">
+                      <type>
+                        <derived name="ValvePercent_Impl" />
+                      </type>
+                    </variable>
+                    <variable name="initialization">
+                      <type>
+                        <BOOL />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="TRUE" />
+                      </initialValue>
+                    </variable>
+                    <variable name="init_period">
+                      <type>
+                        <USINT />
+                      </type>
+                      <initialValue>
+                        <simpleValue value="0" />
+                      </initialValue>
+                    </variable>
+                    <variable name="EstimatedFlowValve4Extend">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="EstimatedFlowValve4Retract">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="EstimatedFlowValve0Extend">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="EstimatedFlowValve0Retract">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="EstimatedFlowValve2Extend">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="EstimatedFlowValve2Retract">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="EstimatedFlowValve1Extend">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                    <variable name="EstimatedFlowValve1Retract">
+                      <type>
+                        <USINT />
+                      </type>
+                    </variable>
+                  </localVars>
+                </interface>
+                <body>
+                  <ST>
+                    <xhtml xmlns="http://www.w3.org/1999/xhtml">//=====================================================================//
+//=====================Set the valves setpoints=======================//
+//===================================================================//
+//if power-up
+IF init_period&lt;=200 THEN
+	IF init_period&lt;100 THEN   //if less than 1 sec
+		Aux_Valve_12_Port_Flow_Command:=0; 
+		Aux_Valve_12_State_Command:=1;
+		Aux_Valve_11_Port_Flow_Command:=0; 
+		Aux_Valve_11_State_Command:=1;
+		Aux_Valve_10_Port_Flow_Command:=0; 
+		Aux_Valve_10_State_Command:=1;
+		Aux_Valve_9_Port_Flow_Command:=0; 
+		Aux_Valve_9_State_Command:=1;
+		Aux_Valve_8_Port_Flow_Command:=0; 
+		Aux_Valve_8_State_Command:=1;
+		Aux_Valve_7_Port_Flow_Command:=0; 
+		Aux_Valve_7_State_Command:=1;
+		Aux_Valve_6_Port_Flow_Command:=0; 
+		Aux_Valve_6_State_Command:=1;
+		Aux_Valve_5_Port_Flow_Command:=0; 
+		Aux_Valve_5_State_Command:=1;
+		Aux_Valve_4_Port_Flow_Command:=0; 
+		Aux_Valve_4_State_Command:=1;
+		Aux_Valve_3_Port_Flow_Command:=0; 
+		Aux_Valve_3_State_Command:=1;
+		Aux_Valve_2_Port_Flow_Command:=0; 
+		Aux_Valve_2_State_Command:=1;
+		Aux_Valve_0_Port_Flow_Command:=0; 
+		Aux_Valve_0_State_Command:=1;
+		Aux_Valve_1_Port_Flow_Command:=0; 
+		Aux_Valve_1_State_Command:=1;
+		
+	ELSIF init_period&lt;200 THEN  // if 1 to 2 sec
+		Aux_Valve_12_Port_Flow_Command:=0; 
+		Aux_Valve_12_State_Command:=0;
+		Aux_Valve_11_Port_Flow_Command:=0; 
+		Aux_Valve_11_State_Command:=0;
+		Aux_Valve_10_Port_Flow_Command:=0; 
+		Aux_Valve_10_State_Command:=0;
+		Aux_Valve_9_Port_Flow_Command:=0; 
+		Aux_Valve_9_State_Command:=0;
+		Aux_Valve_8_Port_Flow_Command:=0; 
+		Aux_Valve_8_State_Command:=0;
+		Aux_Valve_7_Port_Flow_Command:=0; 
+		Aux_Valve_7_State_Command:=0;
+		Aux_Valve_6_Port_Flow_Command:=0; 
+		Aux_Valve_6_State_Command:=0;
+		Aux_Valve_5_Port_Flow_Command:=0; 
+		Aux_Valve_5_State_Command:=0;
+		Aux_Valve_4_Port_Flow_Command:=0; 
+		Aux_Valve_4_State_Command:=0;
+		Aux_Valve_3_Port_Flow_Command:=0; 
+		Aux_Valve_3_State_Command:=0;
+		Aux_Valve_2_Port_Flow_Command:=0; 
+		Aux_Valve_2_State_Command:=0;
+		Aux_Valve_0_Port_Flow_Command:=0; 
+		Aux_Valve_0_State_Command:=0;
+		Aux_Valve_1_Port_Flow_Command:=0; 
+		Aux_Valve_1_State_Command:=0;
+	ELSE 
+		GVL.EnginesReady:=TRUE;
+	END_IF
+	IF Engine_Speed &lt;&gt; 0 THEN //if the engine is working
+		init_period:=init_period+1;
+	END_IF	
+ELSIF Engine_Speed=0 THEN
+	init_period:=0;
+	GVL.EnginesReady:=FALSE;
+		Aux_Valve_12_Port_Flow_Command:=0; 
+		Aux_Valve_12_State_Command:=1;
+		Aux_Valve_11_Port_Flow_Command:=0; 
+		Aux_Valve_11_State_Command:=1;
+		Aux_Valve_10_Port_Flow_Command:=0; 
+		Aux_Valve_10_State_Command:=1;
+		Aux_Valve_9_Port_Flow_Command:=0; 
+		Aux_Valve_9_State_Command:=1;
+		Aux_Valve_8_Port_Flow_Command:=0; 
+		Aux_Valve_8_State_Command:=1;
+		Aux_Valve_7_Port_Flow_Command:=0; 
+		Aux_Valve_7_State_Command:=1;
+		Aux_Valve_6_Port_Flow_Command:=0; 
+		Aux_Valve_6_State_Command:=1;
+		Aux_Valve_5_Port_Flow_Command:=0; 
+		Aux_Valve_5_State_Command:=1;
+		Aux_Valve_4_Port_Flow_Command:=0; 
+		Aux_Valve_4_State_Command:=1;
+		Aux_Valve_3_Port_Flow_Command:=0; 
+		Aux_Valve_3_State_Command:=1;
+		Aux_Valve_2_Port_Flow_Command:=0; 
+		Aux_Valve_2_State_Command:=1;
+		Aux_Valve_0_Port_Flow_Command:=0; 
+		Aux_Valve_0_State_Command:=1;
+		Aux_Valve_1_Port_Flow_Command:=0; 
+		Aux_Valve_1_State_Command:=1;
+ELSE
+
+//++++++++++++++++++++++++++Valve 12+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_12_Command&lt;0 THEN	//retract
+	Aux_Valve_12_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_12_Command)); 
+	Aux_Valve_12_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_12_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_12_Command));
+	Aux_Valve_12_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 11+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_11_Command&lt;0 THEN	//retract
+	Aux_Valve_11_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_11_Command)); 
+	Aux_Valve_11_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_11_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_11_Command));
+	Aux_Valve_11_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 10+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_10_Command&lt;0 THEN	//retract
+	Aux_Valve_10_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_10_Command)); 
+	Aux_Valve_10_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_10_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_10_Command));
+	Aux_Valve_10_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 9+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_9_Command&lt;0 THEN	//retract
+	Aux_Valve_9_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_9_Command)); 
+	Aux_Valve_9_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_9_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_9_Command));
+	Aux_Valve_9_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 8+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_8_Command&lt;0 THEN	//retract
+	Aux_Valve_8_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_8_Command)); 
+	Aux_Valve_8_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_8_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_8_Command));
+	Aux_Valve_8_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 7+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_7_Command&lt;0 THEN	//retract
+	Aux_Valve_7_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_7_Command)); 
+	Aux_Valve_7_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_7_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_7_Command));
+	Aux_Valve_7_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 6+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_6_Command&lt;0 THEN	//retract
+	Aux_Valve_6_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_6_Command)); 
+	Aux_Valve_6_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_6_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_6_Command));
+	Aux_Valve_6_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 5+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_5_Command&lt;0 THEN	//retract
+	Aux_Valve_5_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_5_Command)); 
+	Aux_Valve_5_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_5_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_5_Command));
+	Aux_Valve_5_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 4+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_4_Command&lt;0 THEN	//retract
+	Aux_Valve_4_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_4_Command)); 
+	Aux_Valve_4_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_4_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_4_Command));
+	Aux_Valve_4_State_Command:=1; 
+END_IF
+
+
+//++++++++++++++++++++++++++Valve 3+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_3_Command&lt;0 THEN	//retract
+	Aux_Valve_3_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_3_Command)); 
+	Aux_Valve_3_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_3_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_3_Command));
+	Aux_Valve_3_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 2+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_2_Command&lt;0 THEN	//retract
+	Aux_Valve_2_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_2_Command)); 
+	Aux_Valve_2_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_2_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_2_Command));
+	Aux_Valve_2_State_Command:=1; 
+END_IF
+
+//++++++++++++++++++++++++++Valve 1+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_1_Command&lt;0 THEN	//retract
+	Aux_Valve_1_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_1_Command)); 
+	Aux_Valve_1_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_1_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_1_Command));
+	Aux_Valve_1_State_Command:=1; 
+END_IF
+//++++++++++++++++++++++++++Valve 0+++++++++++++++++++++++++++++++++++//
+IF GVL.Valve_0_Command&lt;0 THEN	//retract
+	Aux_Valve_0_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(-GVL.Valve_0_Command)); 
+	Aux_Valve_0_State_Command:=2;
+ELSE						//extend
+	Aux_Valve_0_Port_Flow_Command:=REAL_TO_USINT(ValvesVal.Convert(GVL.Valve_0_Command));
+	Aux_Valve_0_State_Command:=1; 
+END_IF
+END_IF
+
+//podglad odpowiedzi
+EstimatedFlowValve0Extend:=Aux_Valve_0_Extend_Port_Estimated_Flow;
+EstimatedFlowValve0Retract:=Aux_Valve_0_Retract_Port_Estimated_Flow;
+Aux_Valve_0_Fail_Safe_Mode;
+Aux_Valve_0_State;
+EstimatedFlowValve1Extend:=Aux_Valve_1_Extend_Port_Estimated_Flow;
+EstimatedFlowValve1Retract:=Aux_Valve_1_Retract_Port_Estimated_Flow;
+Aux_Valve_1_Fail_Safe_Mode;
+Aux_Valve_1_State;
+EstimatedFlowValve2Extend:=Aux_Valve_2_Extend_Port_Estimated_Flow;
+EstimatedFlowValve2Retract:=Aux_Valve_2_Retract_Port_Estimated_Flow;
+Aux_Valve_2_Fail_Safe_Mode;
+Aux_Valve_2_State;
+Aux_Valve_3_Extend_Port_Estimated_Flow;
+Aux_Valve_3_Retract_Port_Estimated_Flow;
+Aux_Valve_3_Fail_Safe_Mode;
+Aux_Valve_3_State;
+EstimatedFlowValve4Extend:=Aux_Valve_4_Extend_Port_Estimated_Flow;
+EstimatedFlowValve4Retract:=Aux_Valve_4_Retract_Port_Estimated_Flow;
+Aux_Valve_4_Fail_Safe_Mode;
+Aux_Valve_4_State;
+Aux_Valve_5_Extend_Port_Estimated_Flow;
+Aux_Valve_5_Retract_Port_Estimated_Flow;
+Aux_Valve_5_Fail_Safe_Mode;
+Aux_Valve_5_State;</xhtml>
+                  </ST>
+                </body>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+                    <ObjectId>33ecfc9b-67a0-4227-aec8-142acbe1060a</ObjectId>
+                  </data>
+                </addData>
+              </pou>
+            </data>
+            <data name="http://www.3s-software.com/plcopenxml/pou" handleUnknown="implementation">
+              <pou name="Logic_PRG" pouType="program">
+                <interface />
+                <body>
+                  <ST>
+                    <xhtml xmlns="http://www.w3.org/1999/xhtml">//If Agribot is not in Manual Mode
+IF GVL.manualControl.getManualState() &lt;&gt; en_manualModeState.ACTIVE THEN
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++ Here is place for autonomic routine ++++++++++++++++++++++++++++++++++++++++++
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	// [[MANUAL MODE CONNECTION STATE MACHINE 1] Here, we decide if Agribot is BUSY or READY for manual steering
+	IF GVL.manualControl.getManualState() = en_manualModeState.MANUAL_DEMANDED THEN
+		
+		//TBD: Here we have to remember to wait for all the jobs to be done. If they are finished, THEN we can
+		//set status for AGRIBOT_READY, else we set it to AGRIBOT_BUSY and wait 
+		//GVL.manualControl.setManualStatus(en_manualModeState.AGRIBOT_BUSY);
+		
+		GVL.manualControl.setManualStatus(en_manualModeState.AGRIBOT_READY);
+		
+	END_IF
+END_IF
+</xhtml>
+                  </ST>
+                </body>
+                <addData>
+                  <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+                    <ObjectId>555d1d87-8a50-4dfb-a6e8-a2cc6e8bb071</ObjectId>
                   </data>
                 </addData>
               </pou>
@@ -8663,55 +10138,8 @@ ComCartBackStraight:=FALSE;
     <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
       <ProjectStructure>
         <Object Name="Device_1" ObjectId="80cbff63-25d2-410c-9741-d340f29e742b">
-          <Object Name="CANs" ObjectId="639a4770-661c-4321-b763-8e106d6d419b">
-            <Object Name="CAN0" ObjectId="ae7436de-23f6-4409-a1e0-2a2e4ae11771" />
-            <Object Name="CAN1" ObjectId="a90f31f9-4f68-40c2-8c48-1409fed71798" />
-            <Object Name="CAN2" ObjectId="6c235e0d-ae1e-441d-8d4a-8bffa1b42baf" />
-            <Object Name="CAN3" ObjectId="1f55cd0f-029f-4385-b0d3-01d152be29e1" />
-            <Object Name="CAN4" ObjectId="6c8609d5-6868-42e8-8b50-40a08949d9dd" />
-            <Object Name="CAN5" ObjectId="dca02418-7bdb-4c48-9847-0a8884971efa" />
-            <Object Name="CAN6" ObjectId="a2ef0efa-ee38-4242-9e18-f47f7df64ba2" />
-          </Object>
           <Object Name="System" ObjectId="9990c505-aff3-4c2e-a4c4-5d7b42209266">
-            <Object Name="Analog_Inputs_2Mode_10V" ObjectId="06164bb1-ae8d-4af5-adce-82c85eb819c1">
-              <Object Name="Pin 107" ObjectId="d4ee8fa4-f12b-4622-b843-e11a7c44b554">
-                <Object Name="&lt;Empty&gt;" ObjectId="8496c839-a4e2-43c0-a737-c84f838e346c" />
-              </Object>
-              <Object Name="Pin 131" ObjectId="0c28105c-5cc5-4300-8105-eae6575202ed">
-                <Object Name="&lt;Empty&gt;" ObjectId="1a5bff87-ac4b-4782-8d0e-f890cbdfaf16" />
-              </Object>
-              <Object Name="Pin 108" ObjectId="27caf31c-4ae9-46f3-9ba4-a8ee3dfb7b0f">
-                <Object Name="&lt;Empty&gt;" ObjectId="f37515d4-8af8-41bf-884f-fec70032b530" />
-              </Object>
-              <Object Name="Pin 132" ObjectId="a629c1e1-6416-4a39-88b1-0b69146a22b7">
-                <Object Name="&lt;Empty&gt;" ObjectId="1ff503b4-98bb-495d-923b-2c9d71a3881c" />
-              </Object>
-              <Object Name="Pin 109" ObjectId="fb65e90c-6b1c-4d57-9ae1-6a01872c9831">
-                <Object Name="&lt;Empty&gt;" ObjectId="2c380043-be15-46d4-ae8c-de527f219ffa" />
-              </Object>
-              <Object Name="Pin 133" ObjectId="c58f062d-e16c-4900-81be-1897d0289fdb">
-                <Object Name="&lt;Empty&gt;" ObjectId="b605ba03-b352-4900-9292-c8fea4826b27" />
-              </Object>
-              <Object Name="Pin 110" ObjectId="6c8eb4d1-166b-4d4c-a38d-110ebdeb991c">
-                <Object Name="&lt;Empty&gt;" ObjectId="55d3c65c-87fc-4fc5-9ae6-e26f83bfb6bf" />
-              </Object>
-              <Object Name="Pin 134" ObjectId="1c9b1359-18a7-44da-90a7-a92c860c0826">
-                <Object Name="&lt;Empty&gt;" ObjectId="3cd8dcf4-4bbe-4fb8-8683-c64534d061b4" />
-              </Object>
-            </Object>
             <Object Name="Analog_Inputs_2Mode_32V" ObjectId="96139108-0706-4911-9c2a-4929a0d4699a">
-              <Object Name="Pin 111" ObjectId="38f7e4ca-2aa6-4f6f-bf68-0366d05b2d2a">
-                <Object Name="&lt;Empty&gt;" ObjectId="af85488c-7921-4c04-8a25-5ce9247e4cd6" />
-              </Object>
-              <Object Name="Pin 135" ObjectId="21b4ce46-4568-47eb-bf50-01afba445136">
-                <Object Name="&lt;Empty&gt;" ObjectId="f9a7975f-5fa1-4596-919a-5b3916b40b78" />
-              </Object>
-              <Object Name="Pin 112" ObjectId="8e0ae14f-90de-45de-86e1-9f0e771cd977">
-                <Object Name="&lt;Empty&gt;" ObjectId="25f87adf-8c80-4667-8a31-f8ae32a6e47f" />
-              </Object>
-              <Object Name="Pin 136" ObjectId="885ca9c7-4f91-4ccf-b9c7-59e078ec1722">
-                <Object Name="&lt;Empty&gt;" ObjectId="145233a3-4414-4d16-a84d-8673c2de4251" />
-              </Object>
               <Object Name="Pin 113" ObjectId="e02743f9-27ba-4f9f-a007-734ad41dc4ef">
                 <Object Name="&lt;Empty&gt;" ObjectId="0fec17ae-b0aa-4144-b964-b0786722b9b0" />
               </Object>
@@ -8723,6 +10151,18 @@ ComCartBackStraight:=FALSE;
               </Object>
               <Object Name="Pin 138" ObjectId="7a911e4c-0466-453a-9bed-44ade3accade">
                 <Object Name="&lt;Empty&gt;" ObjectId="9f7ca873-731b-40bb-9238-b3d0f1d68941" />
+              </Object>
+              <Object Name="Pin 111" ObjectId="38f7e4ca-2aa6-4f6f-bf68-0366d05b2d2a">
+                <Object Name="&lt;Empty&gt;" ObjectId="af85488c-7921-4c04-8a25-5ce9247e4cd6" />
+              </Object>
+              <Object Name="Pin 135" ObjectId="21b4ce46-4568-47eb-bf50-01afba445136">
+                <Object Name="&lt;Empty&gt;" ObjectId="f9a7975f-5fa1-4596-919a-5b3916b40b78" />
+              </Object>
+              <Object Name="Pin 112" ObjectId="8e0ae14f-90de-45de-86e1-9f0e771cd977">
+                <Object Name="&lt;Empty&gt;" ObjectId="25f87adf-8c80-4667-8a31-f8ae32a6e47f" />
+              </Object>
+              <Object Name="Pin 136" ObjectId="885ca9c7-4f91-4ccf-b9c7-59e078ec1722">
+                <Object Name="&lt;Empty&gt;" ObjectId="145233a3-4414-4d16-a84d-8673c2de4251" />
               </Object>
             </Object>
             <Object Name="Analog_Inputs_3Mode" ObjectId="7af5f6df-9878-4891-83f6-bbba94f1bfce">
@@ -8985,8 +10425,43 @@ ComCartBackStraight:=FALSE;
                 <Object Name="&lt;Empty&gt;" ObjectId="e2b79e70-3a0a-429f-821f-718669b65867" />
               </Object>
             </Object>
+            <Object Name="Analog_Inputs_2Mode_10V" ObjectId="06164bb1-ae8d-4af5-adce-82c85eb819c1">
+              <Object Name="Pin 107" ObjectId="d4ee8fa4-f12b-4622-b843-e11a7c44b554">
+                <Object Name="&lt;Empty&gt;" ObjectId="8496c839-a4e2-43c0-a737-c84f838e346c" />
+              </Object>
+              <Object Name="Pin 131" ObjectId="0c28105c-5cc5-4300-8105-eae6575202ed">
+                <Object Name="&lt;Empty&gt;" ObjectId="1a5bff87-ac4b-4782-8d0e-f890cbdfaf16" />
+              </Object>
+              <Object Name="Pin 108" ObjectId="27caf31c-4ae9-46f3-9ba4-a8ee3dfb7b0f">
+                <Object Name="&lt;Empty&gt;" ObjectId="f37515d4-8af8-41bf-884f-fec70032b530" />
+              </Object>
+              <Object Name="Pin 132" ObjectId="a629c1e1-6416-4a39-88b1-0b69146a22b7">
+                <Object Name="&lt;Empty&gt;" ObjectId="1ff503b4-98bb-495d-923b-2c9d71a3881c" />
+              </Object>
+              <Object Name="Pin 109" ObjectId="fb65e90c-6b1c-4d57-9ae1-6a01872c9831">
+                <Object Name="&lt;Empty&gt;" ObjectId="2c380043-be15-46d4-ae8c-de527f219ffa" />
+              </Object>
+              <Object Name="Pin 133" ObjectId="c58f062d-e16c-4900-81be-1897d0289fdb">
+                <Object Name="&lt;Empty&gt;" ObjectId="b605ba03-b352-4900-9292-c8fea4826b27" />
+              </Object>
+              <Object Name="Pin 110" ObjectId="6c8eb4d1-166b-4d4c-a38d-110ebdeb991c">
+                <Object Name="&lt;Empty&gt;" ObjectId="55d3c65c-87fc-4fc5-9ae6-e26f83bfb6bf" />
+              </Object>
+              <Object Name="Pin 134" ObjectId="1c9b1359-18a7-44da-90a7-a92c860c0826">
+                <Object Name="&lt;Empty&gt;" ObjectId="3cd8dcf4-4bbe-4fb8-8683-c64534d061b4" />
+              </Object>
+            </Object>
           </Object>
           <Object Name="Application" ObjectId="5a5455cf-ef84-4ea0-995b-0f7b01111b4c">
+            <Folder Name="MANUAL_STEERING">
+              <Object Name="manualSteering" ObjectId="beb9497c-a90d-4efd-a9b5-aa241c8ef363">
+                <Object Name="stopAllStartedActions" ObjectId="b5e5ba74-e233-4786-9c7c-9a4d474512f9" />
+                <Object Name="setManualModeInactive" ObjectId="1fe42464-aeba-440a-bf56-4ea551dc0db6" />
+                <Object Name="setManualStatus" ObjectId="af7ca618-422e-4f7d-9e46-d8b1416e8173" />
+                <Object Name="getManualState" ObjectId="63802f61-ae5a-451c-8722-8999066b286d" />
+              </Object>
+              <Object Name="en_manualModeState" ObjectId="a842ba19-153c-4d67-94d3-2756921e06ff" />
+            </Folder>
             <Object Name="Library Manager" ObjectId="a50272eb-ce26-4453-b4c8-dde41a72787e" />
             <Object Name="Main_Task" ObjectId="ccb38e4c-b9e2-478a-86e7-ef9d60f46b9d" />
             <Object Name="_ErrorCallback" ObjectId="22665801-dd56-4c42-8f38-30e89e871a5d" />
@@ -9006,13 +10481,6 @@ ComCartBackStraight:=FALSE;
             </Folder>
             <Object Name="en_commStatus" ObjectId="9f2299e7-c3fd-447b-8e96-4b6d0b12f50a" />
             <Object Name="en_canFrameID" ObjectId="84b7d177-6fd7-462a-b570-158f1404969d" />
-            <Folder Name="MANUAL_STEERING">
-              <Object Name="en_manualModeState" ObjectId="a842ba19-153c-4d67-94d3-2756921e06ff" />
-              <Object Name="manualSteering" ObjectId="beb9497c-a90d-4efd-a9b5-aa241c8ef363">
-                <Object Name="setManualModeInactive" ObjectId="1fe42464-aeba-440a-bf56-4ea551dc0db6" />
-                <Object Name="stopAllStartedActions" ObjectId="b5e5ba74-e233-4786-9c7c-9a4d474512f9" />
-              </Object>
-            </Folder>
             <Object Name="Application_PRG" ObjectId="2422d21b-bce1-4262-9e99-8dc2191226b1" />
             <Object Name="_ErrorCB_PRG" ObjectId="330adccd-f0bd-4939-b4c1-ad6c1ada39b1" />
             <Object Name="_NotificationCB_PRG" ObjectId="cdf2df57-0488-4966-885c-64b3abbf0b04" />
@@ -9023,6 +10491,18 @@ ComCartBackStraight:=FALSE;
             <Object Name="FMOD" ObjectId="999e4867-0440-4e98-82ff-db93d78c3b9a" />
             <Object Name="GPSHeadingFilter" ObjectId="6afe839d-41af-4c9a-8b85-10578c087d3e" />
             <Object Name="TX_RXCAN" ObjectId="811056cc-d7af-4f23-a0d7-f72b86b04e4f" />
+            <Object Name="Main_Logic" ObjectId="d9a49afc-7bed-4709-9077-5983229879f3" />
+            <Object Name="Valve_Set" ObjectId="33ecfc9b-67a0-4227-aec8-142acbe1060a" />
+            <Object Name="Logic_PRG" ObjectId="555d1d87-8a50-4dfb-a6e8-a2cc6e8bb071" />
+          </Object>
+          <Object Name="CANs" ObjectId="639a4770-661c-4321-b763-8e106d6d419b">
+            <Object Name="CAN0" ObjectId="ae7436de-23f6-4409-a1e0-2a2e4ae11771" />
+            <Object Name="CAN1" ObjectId="a90f31f9-4f68-40c2-8c48-1409fed71798" />
+            <Object Name="CAN2" ObjectId="6c235e0d-ae1e-441d-8d4a-8bffa1b42baf" />
+            <Object Name="CAN3" ObjectId="1f55cd0f-029f-4385-b0d3-01d152be29e1" />
+            <Object Name="CAN4" ObjectId="6c8609d5-6868-42e8-8b50-40a08949d9dd" />
+            <Object Name="CAN5" ObjectId="dca02418-7bdb-4c48-9847-0a8884971efa" />
+            <Object Name="CAN6" ObjectId="a2ef0efa-ee38-4242-9e18-f47f7df64ba2" />
           </Object>
         </Object>
       </ProjectStructure>
